@@ -1,252 +1,232 @@
+const TOTAL_QUESTIONS = questions.length;
+
 let currentQuestion = 0;
-let answeredQuestions = [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]; 
+let answeredQuestions = Array(TOTAL_QUESTIONS).fill(-1);
+let showingResults = false;
 
+function prevQuestion() {
+    if (showingResults) {
+        currentQuestion = TOTAL_QUESTIONS - 1;
+        showQuestion(currentQuestion);
+        return;
+    }
 
-function prevQuestion(){
-	if(currentQuestion > 0){
-		currentQuestion -= 1;
-		showQuestion(currentQuestion);
-	}
+    if (currentQuestion > 0) {
+        currentQuestion -= 1;
+        showQuestion(currentQuestion);
+    }
 }
 
-function nextQuestion(){
-	if(allAnswered()){
-		max_scroll_val = 10;
-	}
-	else{
-		max_scroll_val = 9;
-	}
-	
-	if(currentQuestion < max_scroll_val){
-		currentQuestion += 1;
-		if(currentQuestion < 10){
-			showQuestion(currentQuestion);
-		}
-		else{
-			showResults();
-		}
-	}
+function nextQuestion() {
+    if (showingResults) {
+        return;
+    }
+
+    if (currentQuestion < TOTAL_QUESTIONS - 1) {
+        currentQuestion += 1;
+        showQuestion(currentQuestion);
+    } else if (allAnswered()) {
+        showResults();
+    }
 }
 
-function showQuestion(index){
-	const box = document.getElementById("question-box");
-	const q = questions[index];
-	let feedback_msg = "";
+function showQuestion(index) {
+    showingResults = false;
+    currentQuestion = index;
 
-	const letters = ["A. ", "B. ", "C. ", "D. "];
+    const box = document.getElementById("question-box");
+    const q = questions[index];
+    const letters = ["A. ", "B. ", "C. ", "D. "];
 
-	let html = `
-	<h3>Frage ${index + 1} von 10</h3>
-	<p>${q.question}</p>
-	`;
+    let html = `
+        <h3>Frage ${index + 1} von ${TOTAL_QUESTIONS}</h3>
+        <p>${q.question}</p>
+    `;
 
-	q.options.forEach((opt, i) => {
-	html += `
-	<label>
-	<input type="radio" name="q${index}" value="${i}">
-	<strong>${letters[i]}</strong>&nbsp; ${opt}
-	</label>
-	`;
-	});
+    q.options.forEach((opt, i) => {
+        html += `
+            <label>
+                <input type="radio" name="q${index}" value="${i}">
+                <strong>${letters[i]}</strong>&nbsp; ${opt}
+            </label>
+        `;
+    });
 
-	box.innerHTML = html;
+    box.innerHTML = html;
 
-	document.getElementById("feedback").classList.add("hidden");
+    const feedbackBox = document.getElementById("feedback");
+    feedbackBox.classList.add("hidden");
+    feedbackBox.innerHTML = "";
 
-	// Zeige das bereits gewählte, wenn was bereits gewählt wurde.
-	showFeedback();
-	updateProgressbar();
-	updateButtonText()
+    showFeedback();
+    updateProgressbar();
+    updateButtonText();
 }
 
+function sendAnswer() {
+    if (showingResults) {
+        restartQuiz();
+        return;
+    }
 
-function sendAnswer(){
-	const selected = document.querySelector(`input[name="q${currentQuestion}"]:checked`);
-	
-	if(currentQuestion == 10){
-		location.reload();
-	}
-	else if(allAnswered()){
-		currentQuestion = 10;
-		showResults();
-	}
-	
-	if (!selected) {
-		return;
-	}
-	
-	if(answeredQuestions[currentQuestion] != -1){
-		return;
-	}
-	
-	const answer = parseInt(selected.value);
-	const q = questions[currentQuestion];
-	
-	answeredQuestions[currentQuestion] = answer
-	
-	showFeedback();
-	updateProgressbar();
-	updateButtonText()
+    if (allAnswered()) {
+        showResults();
+        return;
+    }
+
+    const selected = document.querySelector(`input[name="q${currentQuestion}"]:checked`);
+
+    if (!selected || answeredQuestions[currentQuestion] !== -1) {
+        return;
+    }
+
+    answeredQuestions[currentQuestion] = parseInt(selected.value, 10);
+
+    showFeedback();
+    updateProgressbar();
+    updateButtonText();
 }
 
+function showFeedback() {
+    if (showingResults) {
+        return;
+    }
 
-function showFeedback(){
-	const feedback_box = document.getElementById("feedback");
-	let feedback_msg = "";
+    const feedbackBox = document.getElementById("feedback");
+    const selectedValue = answeredQuestions[currentQuestion];
 
-	const selectedValue = answeredQuestions[currentQuestion];
-	if(selectedValue === -1){
-		feedback_box.innerHTML = "";
-		return;
-	}
-	else{
-		document.querySelectorAll(`input[name="q${currentQuestion}"]`)
-			.forEach(input => input.disabled = true);
-	}
+    if (selectedValue === -1) {
+        feedbackBox.innerHTML = "";
+        feedbackBox.classList.add("hidden");
+        return;
+    }
 
-	const correctValue = questions[currentQuestion].correct[0];
+    document.querySelectorAll(`input[name="q${currentQuestion}"]`).forEach(input => {
+        input.disabled = true;
+    });
 
-	const selectedInput = document.querySelector(
-		`input[name="q${currentQuestion}"][value="${selectedValue}"]`
-	);
+    const correctValue = questions[currentQuestion].correct[0];
+    const selectedInput = document.querySelector(
+        `input[name="q${currentQuestion}"][value="${selectedValue}"]`
+    );
+    const correctInput = document.querySelector(
+        `input[name="q${currentQuestion}"][value="${correctValue}"]`
+    );
 
-	const correctInput = document.querySelector(
-		`input[name="q${currentQuestion}"][value="${correctValue}"]`
-	);
+    document.querySelectorAll(`input[name="q${currentQuestion}"]`).forEach(input => {
+        input.parentElement.classList.remove("correct", "wrong", "solution");
+    });
 
-	const selectedLabel = selectedInput?.parentElement;
-	const correctLabel = correctInput?.parentElement;
+    let feedbackMessage = "";
 
-	// Reset
-	document.querySelectorAll(`input[name="q${currentQuestion}"]`).forEach(input => {
-		input.parentElement.classList.remove("correct", "wrong", "solution");
-	});
+    if (selectedValue === correctValue) {
+        selectedInput?.parentElement.classList.add("correct");
+        feedbackMessage = "Die Antwort ist richtig:<br>";
+        feedbackBox.classList.remove("wrong");
+        feedbackBox.classList.add("correct");
+    } else {
+        selectedInput?.parentElement.classList.add("wrong");
+        correctInput?.parentElement.classList.add("solution");
+        feedbackMessage = "Die Antwort ist falsch:<br>";
+        feedbackBox.classList.remove("correct");
+        feedbackBox.classList.add("wrong");
+    }
 
-	// ⭐ richtige Antwort IMMER markieren
-	if(selectedValue === correctValue){
-		selectedLabel.classList.add("correct");
-		feedback_msg = "Die Antwort ist richtig:<br>";
-	} else {
-		selectedLabel.classList.add("wrong");
-		correctLabel.classList.add("solution");
-		feedback_msg = "Die Antwort ist falsch:<br>";
-	}
-
-	feedback_msg += questions[currentQuestion].explanation;
-	feedback_box.innerHTML = feedback_msg;
-	
-	document.getElementById("feedback").classList.remove("hidden");
+    feedbackMessage += questions[currentQuestion].explanation;
+    feedbackBox.innerHTML = feedbackMessage;
+    feedbackBox.classList.remove("hidden");
 }
 
-function showResults(){
-	const box = document.getElementById("question-box");
-	var correct_ones = 0;
-	
-	for(i = 0; i < 10; i++){
-		if(answeredQuestions[i] == questions[i].correct[0]){
-			correct_ones += 1;
-		}
-	}
-	
+function showResults() {
+    showingResults = true;
+    currentQuestion = TOTAL_QUESTIONS;
 
-	let html = `
-	<h3>Ergebnis</h3>
-	<p>Du hast ${correct_ones} von 10 Fragen richtig</p><br>
-	`;
-	
-	switch(correct_ones){
-		case 10:
-			html += `<p>Sieht so aus, als macht dir in Sachen Social Engineering keiner so schnell etwas vor.</p>
-			<p>Wenn du möchtest kannst du über den Button unten aber noch einmal ein neues Quiz probieren.</p>`
-			break;
-		case 9:
-		case 8:
-			html += `<p>Du bist schon ganz gut dabei, aber es gibt noch einige Dinge die du dir vor Augen rufen solltest.</p>
-			<p>Probiere dich doch an einem neuen Quiz, um noch mehr über Social Engineering zu lernen und dich vor potentiellen Gefahren zu schützen.</p>`
-			break;
-		case 7:
-		case 6:
-		case 5:
-			html += `<p>Nicht schlecht, aber für dich gibt es noch einiges zum Thema zu lernen.</p>
-			<p>Versuche dich doch an einem neuen Quiz, um mehr über Social Engineering zu lernen.</p>`
-			break;
-		case 4:
-		case 3:
-		case 2:
-		case 1:
-		case 0:
-			html += `<p>Scheint so, als gäbe es für dich noch viel über das Thema Social Engineering zu lernen.</p>
-			<p>Probiere dich gern an einem weiteren Quiz, um zu lernen wie du dich vor den Gefahren schützen kannst.</p>`
-			break;
-		default:
-			break;
-	}
+    const box = document.getElementById("question-box");
+    const correctAnswers = answeredQuestions.reduce((sum, answer, index) => {
+        return sum + (answer === questions[index].correct[0] ? 1 : 0);
+    }, 0);
 
-	box.innerHTML = html;
+    let resultText = "";
 
-	document.getElementById("feedback").classList.add("hidden");
+    if (correctAnswers === 5) {
+        resultText = `
+            <p>Stark – du hast die rechtlichen Grundlagen und Lizenzarten aus der Unterlage sicher drauf.</p>
+        `;
+    } else if (correctAnswers === 4) {
+        resultText = `
+            <p>Sehr gut. Nur an einer Stelle lohnt sich noch ein kurzer Blick in die Unterlage.</p>
+        `;
+    } else if (correctAnswers === 3) {
+        resultText = `
+            <p>Solide Grundlage. Bei den Rechtsbereichen und Lizenzarten kannst du noch etwas nachschärfen.</p>
+        `;
+    } else {
+        resultText = `
+            <p>Schau dir die Unterschiede zwischen den Gesetzen und Lizenzarten noch einmal kurz an und starte das Quiz danach erneut.</p>
+        `;
+    }
 
-	// Zeige das bereits gewählte, wenn was bereits gewählt wurde.
-	showFeedback();
-	updateProgressbar();
-	updateButtonText();
+    box.innerHTML = `
+        <h3>Ergebnis</h3>
+        <p>Du hast ${correctAnswers} von ${TOTAL_QUESTIONS} Fragen richtig beantwortet.</p>
+        ${resultText}
+    `;
+
+    const feedbackBox = document.getElementById("feedback");
+    feedbackBox.innerHTML = "";
+    feedbackBox.classList.add("hidden");
+    feedbackBox.classList.remove("correct", "wrong");
+
+    updateProgressbar();
+    updateButtonText();
 }
 
-function updateButtonText(){
-	if(currentQuestion == 10){
-		document.getElementById("submit-btn").innerText = "Neues Quiz erstellen";
-	}
-	else{
-		if(allAnswered()){
-			document.getElementById("submit-btn").innerText = "Ergebnisse anzeigen";
-		}
-	}
+function updateButtonText() {
+    const submitButton = document.getElementById("submit-btn");
+
+    if (showingResults) {
+        submitButton.innerText = "Quiz neu starten";
+    } else if (allAnswered()) {
+        submitButton.innerText = "Ergebnisse anzeigen";
+    } else {
+        submitButton.innerText = "Antwort absenden";
+    }
 }
 
-function updateProgressbar(){
-	const steps = document.querySelectorAll(".quiz_progressbar span");
+function updateProgressbar() {
+    const questionSteps = document.querySelectorAll(".quiz_progressbar .question-step");
+    const resultStep = document.querySelector(".quiz_progressbar .step_result");
 
-	steps.forEach((step, index) => {
+    questionSteps.forEach((step, index) => {
+        step.classList.remove("active", "correct-step", "wrong-step");
 
-		step.classList.remove("active", "correct-step", "wrong-step");
+        if (!showingResults && index === currentQuestion) {
+            step.classList.add("active");
+        }
 
-		if(index === currentQuestion){
-			step.classList.add("active");
-		}
+        if (answeredQuestions[index] !== -1) {
+            if (answeredQuestions[index] === questions[index].correct[0]) {
+                step.classList.add("correct-step");
+            } else {
+                step.classList.add("wrong-step");
+            }
+        }
+    });
 
-		if(answeredQuestions[index] !== -1){
-			if(answeredQuestions[index] === questions[index].correct[0]){
-				step.classList.add("correct-step");
-			} else {
-				step.classList.add("wrong-step");
-			}
-		}
-	});
+    resultStep.classList.toggle("active", showingResults);
 }
 
-function randomizeQuestions(array){
-	for (let i = array.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-
-		// tauschen
-		[array[i], array[j]] = [array[j], array[i]];
-	}
-	return array;
+function allAnswered() {
+    return answeredQuestions.every(answer => answer !== -1);
 }
 
-function allAnswered(){
-	for(i = 0; i < 10; i++){
-		if(answeredQuestions[i] == -1){
-			return false;
-		}
-	}
-	
-	return true;
+function restartQuiz() {
+    currentQuestion = 0;
+    answeredQuestions = Array(TOTAL_QUESTIONS).fill(-1);
+    showingResults = false;
+    showQuestion(0);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.querySelector(".step_result").classList.add(".hidden"); 
-	randomizeQuestions(questions);
-	showQuestion(0);
-	updateProgressbar();
+    showQuestion(0);
 });
